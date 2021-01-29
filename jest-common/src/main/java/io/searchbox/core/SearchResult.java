@@ -216,38 +216,40 @@ public class SearchResult extends JestResult {
     public Long getTotal() {
 
         try {
-            return getTotalResult(PATH_TO_TOTAL);
+            return getTotalResult(PATH_TO_TOTAL_ELASTIC_V7)
+                           .orElseGet(() -> getTotalResult(PATH_TO_TOTAL)
+                                                    .orElse(null));
         } catch (UnsupportedOperationException e) {
-            return getTotalResult(PATH_TO_TOTAL_ELASTIC_V7);
+            return getTotalResult(PATH_TO_TOTAL)
+                           .orElse(null);
         }
 
     }
 
-    private Long getTotalResult(String[] path) {
-        Long total = null;
-        JsonElement obj = getPath(path);
-        if (obj != null) total = obj.getAsLong();
-        return total;
+    private Optional<Long> getTotalResult(String[] path) {
+        return getPath(path)
+                .map(JsonElement::getAsLong);
     }
 
     public Float getMaxScore() {
-        Float maxScore = null;
-        JsonElement obj = getPath(PATH_TO_MAX_SCORE);
-        if (obj != null && !obj.isJsonNull()) maxScore = obj.getAsFloat();
-        return maxScore;
+        return getPath(PATH_TO_MAX_SCORE)
+                .filter(obj -> !obj.isJsonNull())
+                .map(obj -> obj.getAsFloat())
+                .orElse(null);
     }
 
-    protected JsonElement getPath(String[] path) {
-        JsonElement retval = null;
-        if (jsonObject != null) {
-            JsonElement obj = jsonObject;
-            for (String component : path) {
-                if (obj == null) break;
-                obj = ((JsonObject) obj).get(component);
-            }
-            retval = obj;
+    protected Optional<JsonElement> getPath(String[] path) {
+        if (jsonObject == null)
+            return Optional.empty();
+
+        JsonElement current = jsonObject;
+        for (String component : path) {
+            if (current == null || !current.isJsonObject())
+                return Optional.empty();
+            current = current.getAsJsonObject().get(component);
         }
-        return retval;
+
+        return Optional.ofNullable(current);
     }
 
     public MetricAggregation getAggregations() {
